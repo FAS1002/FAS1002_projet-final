@@ -1,76 +1,118 @@
 ---
-title: "Titre de votre page d'exploration"
+title: "exploration"
 title-block-banner: false
 description: | 
   Petite description de cette page.
 # à changer
 date: "2022-12-21"
 # Modifier les détails que vous voulez
-author:
-  - name: "Prénom Nom"
-    # Votre site web perso ou github
-    url: https://github.com/VOTREUSERNAME
-    # les champs d'affiliation sont optionnels, vous pouvez les
-    # comment out en ajoutant un # devant.
-    affiliation: FAS1002
-    affiliation-url: https://FAS1002.github.io/A22
-    # changer pour votre propre orcid id
-    # https://orcid.org/ pour vous inscrire.
-    orcid: 0000-0000-0000-0000
-
-# TRUE == Générer une citation pour cette page précise. Pour enlever, mettre false.
-citation: true
-# Inclure les références que vous utilisez dans vos rapports. Je conseille Zotero pour construire
-# ce fichier ou de connecter RStudio directement pour pouvoir citer avec @nom-de-reference.
-bibliography: references.bib
 ---
 
-## Un peu d'interactivité pour le plaisir!
-
-```{r map}
-library(leaflet)
-leaflet() %>%
-    setView(lng=150,
-            lat=-30,
-            zoom = 3) %>%
-    addTiles() %>%
-    addMarkers(lng=174.768,
-               lat=-36.852,
-               popup="Là où R est né") %>%
-    addProviderTiles(providers$Esri.WorldGrayCanvas)
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(fs)
+library(lubridate)
+library(skimr)
+library(patchwork)
 ```
 
-## Peut-être que ça vous inspirera!
+## Reimportation des données
 
-```{r plotly, message=FALSE, warning=FALSE}
-library(plotly)
-library(gapminder)
-df <- gapminder
+```{r}
+df <- read_csv(file = path("data", "raw", "athlete_events", ext = "csv"))
 
-fig <- df %>%
-  plot_ly(
-    x = ~ gdpPercap,
-    y = ~ lifeExp,
-    size = ~ pop,
-    color = ~ continent,
-    frame = ~ year,
-    text = ~ country,
-    hoverinfo = "text",
-    type = 'scatter',
-    mode = 'markers',
-    width = "100%",
-    height = 600
-  )
 
-fig <- fig %>% layout(xaxis = list(type = "log"))
-
-fig <- fig %>%
-  animation_button(
-    x = 0, xanchor = "left", y = -0.15, yanchor = "bottom"
-  )
-fig
 ```
 
--------------------------------------------------------------------------------
+## Résumé des variables avec skimr
 
-À votre imagination de jouer!
+```{r}
+skim(df)
+```
+
+### Données manquantes, Données extrêmes, etc.
+
+Est-ce que les `NA` font du sens pour toutes les variables?
+
+Âge ?
+
+```{r}
+df %>% filter(Age >= 75)
+```
+
+### 
+
+```{r}
+p1 <- ggplot(data = df, 
+            mapping = aes(x = Age))
+
+p1 + geom_histogram()
+
+p1 + geom_histogram(color = "black", 
+                   fill = "#facade",
+                   binwidth = 1)
+```
+
+```{r}
+p2 <- ggplot(data = df, 
+            mapping = aes(x = Sex, y = Age, fill = Sex))
+
+p2 + geom_boxplot()
+```
+
+```{r}
+share_f <- df %>%
+  group_by(Year, Sex) %>%
+  summarise(n =n()) %>%
+  mutate(freq = n / sum(n)) %>%
+  filter(Sex == "F")
+share_f
+
+share_m <- df %>%
+  group_by(Year, Sex) %>%
+  summarise(n =n()) %>%
+  mutate(freq = n / sum(n)) %>%
+  filter(Sex == "M")
+
+# add missing year for plots later on
+share_f <- as_tibble(share_f) %>% add_case(Year = 1896, Sex = "F", n = 0, freq = 0.00) %>% arrange(Year)
+
+
+# mutate dans groupe_tibbled?
+```
+
+```{r}
+p_sf <- ggplot(share_f, aes(x=Year, y=freq)) +
+    geom_line(color = "#BADA55") + 
+    geom_point(color = "#BADA55") +
+    ylab("Proportion de femmes")
+
+p_sm <- ggplot(share_m, aes(x=Year, y=freq)) +
+    geom_line(color = "#de1e7e") + 
+    geom_point(color = "#de1e7e") +
+    ylab("Proportion d'hommes")
+
+p_sfm <- ggplot() +
+    geom_line(aes(x=share_m$Year,
+                  y=share_m$freq),
+              size = 2,
+              color = "#de1e7e") + 
+    geom_line(aes(x=share_f$Year,
+                  y = share_f$freq),
+              size = 2,
+              color = "#BADA55") +
+    labs(x = "Années", y = "Proportion des sexes")
+
+(p_patch <- (p_sf + p_sm) / p_sfm)
+
+ggsave(filename = path("figures", "test", ext = "png"), plot = p_patch)
+```
+
+## Médailles
+
+```{r}
+df <- df %>%
+    mutate(has_medal = Medal %in% c("Gold", "Silver", "Bronze"))
+
+table(df$has_medal)
+```
