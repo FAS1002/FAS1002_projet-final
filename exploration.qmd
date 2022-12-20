@@ -1,22 +1,21 @@
 ---
-title: "Titre de votre page d'exploration"
-title-block-banner: false
-description: | 
-  Petite description de cette page.
+title: "Exploration"
+title-block-banner: true
+description: "Cette page présente une exploration des différentes données ainsi qu'une analyse descriptive et statistique des ces différentes variables."
 # à changer
 date: "2022-12-21"
 # Modifier les détails que vous voulez
 author:
-  - name: "Prénom Nom"
+  - name: "Cécile Amadoro et Juliette Leblanc"
     # Votre site web perso ou github
-    url: https://github.com/VOTREUSERNAME
+    url: https://github.com/JulLeblanc
     # les champs d'affiliation sont optionnels, vous pouvez les
     # comment out en ajoutant un # devant.
     affiliation: FAS1002
     affiliation-url: https://FAS1002.github.io/A22
     # changer pour votre propre orcid id
     # https://orcid.org/ pour vous inscrire.
-    orcid: 0000-0000-0000-0000
+    # orcid: 0000-0000-0000-0000
 
 # TRUE == Générer une citation pour cette page précise. Pour enlever, mettre false.
 citation: true
@@ -25,52 +24,295 @@ citation: true
 bibliography: references.bib
 ---
 
-## Un peu d'interactivité pour le plaisir!
+NB : Ouvrir la bribe de code pour voir les `packages` nécessaires à l'importation et la manipulation des données.
 
-```{r map}
-library(leaflet)
-leaflet() %>%
-    setView(lng=150,
-            lat=-30,
-            zoom = 3) %>%
-    addTiles() %>%
-    addMarkers(lng=174.768,
-               lat=-36.852,
-               popup="Là où R est né") %>%
-    addProviderTiles(providers$Esri.WorldGrayCanvas)
-```
-
-## Peut-être que ça vous inspirera!
-
-```{r plotly, message=FALSE, warning=FALSE}
-library(plotly)
+```{r importing processed, warning=FALSE, error=FALSE, message=FALSE}
+library(tidyverse)
+library(fs)
+library(lubridate)
+library(skimr)
 library(gapminder)
-df <- gapminder
+library(countrycode)
+library(cronR)
+library(modelsummary)
+library(patchwork)
+library(wesanderson)
 
-fig <- df %>%
-  plot_ly(
-    x = ~ gdpPercap,
-    y = ~ lifeExp,
-    size = ~ pop,
-    color = ~ continent,
-    frame = ~ year,
-    text = ~ country,
-    hoverinfo = "text",
-    type = 'scatter',
-    mode = 'markers',
-    width = "100%",
-    height = 600
-  )
+df_owid <- read_csv("data/processed/dat_CO2.csv", show_col_types = FALSE)
 
-fig <- fig %>% layout(xaxis = list(type = "log"))
+df_gapminder <- read_csv("data/processed/datgm.csv", show_col_types = FALSE)
 
-fig <- fig %>%
-  animation_button(
-    x = 0, xanchor = "left", y = -0.15, yanchor = "bottom"
-  )
-fig
+dat_join <- read_csv("data/processed/datultimate.csv", show_col_types = FALSE)
 ```
 
--------------------------------------------------------------------------------
+# Statistiques descriptives
 
-À votre imagination de jouer!
+## *Life Expectancy at Birth*
+
+La première est celle du *Life Expectancy* qui comprend au total 5 variables et plus de 56616 observations. Cette banque de données et mis à jour régulièrement et continent des observations pour :
+
+-   Un total de 195 pays
+
+-   Calculées depuis 1800 et estiment l'espérance de vie moyenne pour les différents pays jusqu'en 2100.
+
+-   La banque de donnée regroupe les pays sous les 5 continents principaux soit l'Afrique, les Amériques, l'Asie, l'Europe et l'Océanie.
+
+Voici notamment un récapitulatif des données.
+
+```{r}
+skim(df_gapminder)
+```
+
+## *Our World in Data, Co2*
+
+La banque de données est @ qui a comme but principal de décrire comment les émissions de Co2 et de gaz à effets de serres évoluent dans le temps.
+
+La banque de données présentent plus de :
+
+-   75 variables comme le PIB, le nombre d'habitants dans le pays, l'année et une variable qui a été ajouté et celle qui regroupe les pays sous les 5 continents,
+
+-   Différentes mesures pour le Co2 comme l'émissions brutes, l'accumulation ou bien le rendement par énergie dépensé, etc.
+
+-   Les données enregistrées sont mise à jour de manière presqu'hebdomadaire et ont des observations débutants en 1750.
+
+Pour mieux comprendre les variables, le tableau suivant propose le codebook suivant, adapté du [codebook original](https://github.com/owid/co2-data/blob/master/owid-co2-codebook.csv) .
+
+| Variable              | Description + Type                                                                                                                                                                                                                                        |
+|--------------------|----------------------------------------------------|
+| Country               | pays (character)                                                                                                                                                                                                                                          |
+| Year                  | année de l'observation (numérique)                                                                                                                                                                                                                        |
+| Iso_code              | code du pays selon la codification internationale 3166-1 (character)                                                                                                                                                                                      |
+| Population            | Nombre total de la population selon le pays (numérique)                                                                                                                                                                                                   |
+| GDP (PIB)             | Produit interieur brut mesuré en dollars (numérique)                                                                                                                                                                                                      |
+| CO2                   | Mesure annuelle de la production totale de CO2 par pays, mesuré en en millions de tonnes et excluant l'[UTCATF](https://fr.wikipedia.org/wiki/Utilisation_des_terres,_changement_d'affectation_des_terres_et_foresterie) (numérique)                      |
+| Cement_CO2_per_capita | Mesure annuelle de la production totale de CO2 générée par le ciment, par personne, en millions de tonnes (numérique)                                                                                                                                     |
+| CO2_per_gdp           | Mesure annuelle de la production totale de CO2 selon le PIB, excluant l'UTCATF (numérique)                                                                                                                                                                |
+| coal_co2              | Mesure annuelle par pays de la production de CO2 générée par le charbon, en millions de tonnes (numérique)                                                                                                                                                |
+| coal_co2_per_capita   | Mesure annuelle de la production de CO2 générée par le charbon, mesurée en million de tonnes par personnes (numérique)                                                                                                                                    |
+| methane               | Total annuel des émissions de méthane par pays, incluant l'UTCATF, mesuré en millions de tonnes (numérique)                                                                                                                                               |
+| methane_per_capita    | Total annuel des émissions de méthane par habitant, incluant l'UTCATF, mesuré en millions de tonnes (numérique)                                                                                                                                           |
+| oil_co2               | Mesure annuelle par pays de la production de CO2 générée par le pétrole, en millions de tonnes (numérique)                                                                                                                                                |
+| oil_co2_per_capita    | Mesure annuelle de la production de CO2 générée par le pétrole, mesurée en million de tonnes par personnes (numérique)                                                                                                                                    |
+| ghg_per_capita        | Total des émissions de gas à effet de serres par personne, mesuré en tonne de de millions, incluant l'UTCATF (numérique)                                                                                                                                  |
+| trade_co2             | Total annuel des émissions de C02, issu du commerce, mesuré en million de tonne. (Ici une valeur positive veut dire qu'un pays est un importeur net d'émission de CO2 ; une valeur négative veut dire qu'un pays est un exporteur net d'émission de CO2). |
+
+Voici notamment un récapitulatif des données :
+
+```{r}
+skim(df_owid)
+
+```
+
+## Combinaison des banques de données
+
+On peut également entreprendre des analyses via la combinaison des deux banques de données puisqu'elles ont comme variables communes les années, les continents ainsi que la majorité des pays observés.
+
+Voici un récapitulatif des données :
+
+```{r inner join, warning=FALSE, error=FALSE, message=FALSE}
+skim(dat_join)
+```
+
+# Graphiques
+
+## *Life Expectancy*
+
+Manipulation pour calculer la moyenne mondiale et par continent.
+
+```{r life expectancy average, warning=FALSE, error=FALSE, message=FALSE }
+life_exp_world <- df_gapminder |> 
+    group_by(continent,
+             year) |> 
+    mutate(mean_continent = mean(life_exp, na.rm = TRUE)) |> 
+    ungroup() |> 
+    group_by(year) |> 
+    mutate(mean_world = mean(life_exp, na.rm = TRUE))
+```
+
+Manipulation pour le graphique mondial
+
+```{r life exp world, warning=FALSE, message=FALSE, error=FALSE}
+graph_life_world <-  
+    ggplot(data = life_exp_world,
+           aes(x = year,
+               y = mean_world)) +
+    geom_line(color = "#B1746FFF") +
+    scale_x_continuous(limits = c(1800, 2100),
+                       breaks = seq(1800, 2100, by = 25)) +
+    scale_y_continuous(limits = c(10, 90),
+                       breaks = seq(0, 90, by =10)) +
+    theme_minimal() + 
+    labs(title = "Évolution de l'espérance de vie mondiale",
+         caption = "https://www.gapminder.org/data/",
+         x = " ",
+         y = "Espérance de vie moyenne")
+
+graph_life_world
+
+ggsave("graph_life_world.png", plot = graph_life_world, path = "figures")
+```
+
+Manipulation pour le graphique de l'espérance de vie moyenne par continent
+
+```{r life exp by continent, warning=FALSE, message=FALSE, error=FALSE}
+graph_life_continent <- ggplot() +
+    geom_line(data = life_exp_world,
+             aes(x = year,
+                 y = mean_continent,
+                 color = continent)) +
+    scale_x_continuous(limits = c(1800, 2100),
+                       breaks = seq(1800, 2100, by = 25)) +
+    scale_y_continuous(limits = c(10, 90),
+                       breaks = seq(0, 90, by =10)) +
+    scale_color_manual(values= wes_palette("Moonrise3", n = 5),
+                       name = "Continents",
+                         labels = c("Afrique",
+                                    "Amériques",
+                                    "Asie",
+                                    "Europe",
+                                    "Océanie")) +
+    theme_minimal() +
+    labs(title = "Évolution de l'espérance de vie",
+         subtitle = "Par continents",
+         caption = "https://www.gapminder.org/data/",
+         x = " ",
+         y = "Espérance de vie moyenne") 
+
+graph_life_continent
+
+ggsave("graph_life_continent.png", plot = graph_life_continent, path = "figures")
+```
+
+Il est possible aussi d'observer l'évolution de l'espérance de vie moyenne en fonction des continents. Les grandes cassures dans le temps peuvent être attribuables à différentes périodes historiques.
+
+Notamment, la grand cassure avant les années 1920 peuvent être à la fois attribuables à la Première Guerre mondiale, mais également à l'épidémie de la Grippe espagnole. La même tendance est observable dans les années 1940 pour la Seconde Guerre mondiale et plus récemment, la légère fracture pour la pandémie de la COVID-19.
+
+## *Co2*
+
+Manipulation des données pour calculer l'émission de Co2 mondiale
+
+```{r co2 evolution world, warning=FALSE, error=FALSE, message=FALSE}
+co2_world <- df_owid |> 
+    filter(country == "World") |> 
+    select(co2,
+           year,
+           country)
+
+co2_world$co2 <- co2_world[, "co2"]/1000
+```
+
+Manipulation pour le graphique des émissions de co2 mondiale.
+
+```{r graph world emission, warning=FALSE, error=FALSE, message=FALSE}
+graph_co2_world <- ggplot(data = co2_world,
+       aes(x = year,
+           y = co2$co2)) +
+    geom_line(color = "#B1746FFF") +
+    scale_x_continuous(limits = c(1750, 2025),
+                       breaks = seq(1750, 2025, by = 25)) +
+    scale_y_continuous(limits = c(0, 40),
+                       breaks = seq(0, 40, by = 5)) +
+    geom_point(size = 0.3,
+               color = "#B1746FFF") +
+    labs(title = "Émission de Co2 mondial",
+         caption = "https://ourworldindata.org/co2-emissions",
+         x = "Années",
+         y = "En millards de tonnes") +
+    theme_minimal()
+
+graph_co2_world
+
+ggsave("graph_co2_world.png", graph_co2_world, path = "figures")
+```
+
+Manipulation des données pour calculer l'émission de Co2 par continent :
+
+```{r manipulation co2 continent, warning=FALSE, error=FALSE, message=FALSE}
+co2_continent <- df_owid |> 
+    mutate(continent2 = case_when(country == "Africa" ~ "Afrique",
+                                  country == "Asia" ~ "Asie",
+                                  country == "Europe" ~ "Europe",
+                                  country == "Oceania" ~ "Océanie",
+                                  continent == "Americas" ~ "Amérique")) 
+
+
+co2_continent <- co2_continent |> 
+    filter(!is.na(continent2),
+           !is.na(co2)) |> 
+    select(year,
+           co2,
+           continent2) |> 
+    group_by(continent2)
+
+
+co2_continent$co2 <- co2_continent[, "co2"]/1000
+
+# test <- co2_continent |> 
+#     filter(continent2 == "Amérique") |> 
+#     group_by(year) |> 
+#         select(year,
+#            co2,
+#            continent2)
+
+```
+
+Manipulation pour le graphique des émissions de co2 par continent :
+
+```{r graph for co2 emission, warning=FALSE, error=FALSE, message=FALSE}
+
+graph_co2_continent <- 
+    ggplot(data = co2_continent,
+           aes(x = year,
+               y = co2$co2,
+               color = continent2)) +
+    geom_line() +
+    scale_color_manual(values= wes_palette("Moonrise3", n = 5),
+                       name = "Continents",
+                       labels = c("Afrique",
+                                  "Amériques",
+                                  "Asie",
+                                  "Europe",
+                                  "Océanie")) +
+    labs(title = "Émission de Co2 par continent",
+         caption = "https://ourworldindata.org/co2-emissions",
+         x = "Années",
+         y = "En millards de tonnes") +
+    theme_minimal()
+
+graph_co2_continent
+
+ggsave("graph_co2_continent.png", graph_co2_continent, path = "figures")
+```
+
+## *Data* combiné
+
+Manipulation pour voir si le PIB a une influence sur l'espérance de vie moyenne au fil des ans, par continent.
+
+Les données pour le PIB proviennent de *Our world in Data* et celles pour l'espérance de vie de *Life Expectancy*
+
+```{r}
+graph_life_gdp <- dat_join |> 
+    mutate(gdp = log(gdp)) |> 
+    
+    ggplot(aes(x = gdp,
+               y = life_exp)) +
+    geom_point(aes(color = continent),
+               size = 0.2,
+               alpha = 0.5) +
+    scale_color_manual(values= wes_palette("Moonrise3", n = 5)) +
+    scale_x_continuous(limits = c(20, 28),
+                       breaks = seq(20, 28, by = 4)) +
+    facet_grid(~ continent) +
+    theme_minimal() +
+    theme(legend.position = "none") +
+    labs(title = "Espérance de vie par PIB",
+         caption = "Gapminder et Our World in Data",
+         x = "PIB en log",
+         y = "Espérance moyenne")
+
+graph_life_gdp
+
+ggsave("graph_life_gdp.png", graph_life_gdp, path = "figures")
+```
+
+filter(continent != "Oceania") %\>% mutate(across(where(is.numeric), log)) %\>% ggplot(aes(x = lifeExp, y = gdpPercap)) + geom_point(aes(color = continent), size = 3, alpha = 0.8) + \# facet_wrap(\~factor(continent)) + hrbrthemes::theme_ft_rc() + ggtitle("GDP per capita and life expectancy") + theme(legend.title = element_blank(), legend.text = element_text(size = 20), plot.title = element_text(size = 30)) + scale_color_manual(values= wes_palette("FantasticFox1", n = 4)) +

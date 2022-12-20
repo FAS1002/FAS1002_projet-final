@@ -1,22 +1,22 @@
 ---
-title: "Titre de votre page d'importation"
+title: "Importation"
 title-block-banner: true
 description: | 
-  Petite description de cette page.
+  Cette page regroupe la première importation des données à l'état brute ainsi que les manipulation de bases.
 # à changer
 date: "2022-12-21"
 # Modifier les détails que vous voulez
 author:
-  - name: "Prénom Nom"
+  - name: " Cécile Amadoro et Juliette Leblanc"
     # Votre site web perso ou github
-    url: https://github.com/VOTREUSERNAME
+    url: https://github.com/JulLeblanc
     # les champs d'affiliation sont optionnels, vous pouvez les
     # comment out en ajoutant un # devant.
     affiliation: FAS1002
     affiliation-url: https://FAS1002.github.io/A22
     # changer pour votre propre orcid id
     # https://orcid.org/ pour vous inscrire.
-    orcid: 0000-0000-0000-0000
+    # orcid: 0000-0000-0000-0000
 
 # TRUE == Générer une citation pour cette page précise. Pour enlever, mettre false.
 citation: true
@@ -25,17 +25,209 @@ citation: true
 bibliography: references.bib
 ---
 
-Il est maintenant le temps de décrire votre projet avant de passer au document
-suivant, soit l'importation et la manipulation des données.
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(fs)
+library(lubridate)
+library(tidyverse)
+library(readr)
+library(skimr)
+library(cronR)
+library(readr)
+library(readxl)
+library(RCurl)
+library(googlesheets4)
+library(gsheet)
+library(countrycode)
+```
 
-Je vous conseille d'écrire cette partie en dernier, une fois que vous aurez
-déjà vos résultats et figures afin d'éviter de réécrire cette page plusieurs
-fois.
+# Introduction
 
-::: callout-important
-N'oubliez pas d'inclure vos références sur chacune des pages!
-:::
+Le présent projet travaille avec deux bases de données : La première est issue de Our World in Data, un site qui publie gratuitement des bases de données et de la recherche sur les enjeux contemporains que le monde traverse (économie, écologie, climat, énergie, conflits etc).\
+La deuxième base de donnée est issue de Gapminder, une OBNL suèdoise, qui propose en libre accès d'importantes bases de données aussi sur les enjeux actuels, dans le but de prévenir et lutter contre la mésinformation.
 
-Par exemple:
+# Importation quotidienne
 
-> Les données proviennent entre autres de @owidenergy.
+## Jeu de données CO2 *Our World in Data*
+
+La base de donnée *CO2 & Greenhouse Gas Emissions* est utilisée. Elle permet de faire différentes explorations statistiques sur les émissions de CO2 dans 207 pays depuis le 19ème siècle.
+
+On peut retrouver les données [ici](https://ourworldindata.org/co2-emissions) ainsi que le projet associé à celles-ci.
+
+```{r download co2, cache=TRUE, warning=FALSE, error=FALSE, show_col_types=FALSE}
+
+#Données CO2 d'OWID
+
+urlowid = "https://raw.githubusercontent.com/owid/co2-data/master/owid-co2-data.csv"
+basepath =  path("data", "raw") 
+fnameowid = paste(today(), "owid-co2-data.csv", sep = "_") 
+fpathowid = path(basepath, fnameowid) 
+dataowid = download.file(url = urlowid, destfile = fpathowid)
+
+dat_owid = read_csv(fpathowid, show_col_types = FALSE)
+
+#Automatisation du script, fréquence de téléchargement quotidienne
+
+dailydowload <- function(fnameowid) { if (!file.exists(fpathowid)) {
+    file.remove(junk)
+    download.file(url = urlowid,
+                  destfile = fpathowid)
+    paste("Le fichier",
+          fpathowid,
+          "n'existait pas, il a donc été téléchargé à l'instant.")
+} else {
+    print(paste("Le fichier",
+                fpathowid,
+                "existe déjà, il ne sera pas téléchargé à nouveau.")
+    ) }
+    
+}
+```
+
+## Jeu de données *Gapminder*
+
+La base de données *Life Expectancy at Birth* est utilisée. Elle permet aussi de faire des analyses statistiques sur la question de l'espérance de vie depuis le 19ème siècle. L'espérance de vie est aujourd'hui un des meilleurs indicateurs de développement d'un pays ainsi qu'une solide mesure de projection économique et démographique. Cette base de données contient au total 1505 observations
+
+On peut retrouver les données [ici](https://www.gapminder.org/data/) ainsi que le projet associé à celles-ci.
+
+```{r download lifeexpectancy, cache=TRUE, warning=FALSE, error=FALSE}
+#Données gapminder
+library(gsheet)
+
+#Utilisation de la fonction gsheet2tbl du package gsheet qui permet de convertir facilement une sheet google en dataframe
+
+urlgapminder =  gsheet2tbl("https://docs.google.com/spreadsheets/d/1RheSon1-q4vFc3AGyupVPH6ptEByE-VtnjOCselU0PE/edit#gid=176703676")
+
+#incorporation dans data/raw
+basepathgm = path("data", "raw")
+
+fnamegm = paste(today(), "gapm.csv", sep = "_")
+
+fpathgm = path(basepathgm, fnamegm)
+
+write_csv(x = urlgapminder, file = fpathgm)
+
+datgm = read_csv(fpathgm, show_col_types = FALSE)
+
+#Automatisation du script, fréquence de téléchargement mensuelle
+
+x = today()
+
+monthlydowload <- function(fnamegm) { 
+    if (!file.exists(fpathgm)) {
+        file.remove(junk)
+        download.file(url = urlgapminder,
+                      destfile = fpathgm)
+        paste("Le fichier",
+              fpathgm,
+              "n'existait pas, il a donc été téléchargé à l'instant.")
+    }
+    else if (!month(x)) {
+        file.remove(junk)
+        download.file(url = urlgapminder,
+                      destfile = fpathgm)
+        paste("Le fichier", 
+              fpathgm,
+              "n'existait pas il a donc été téléchargé à l'instant")
+    }
+    
+    
+    else {
+        print(paste("Le fichier",
+                    fpathowid,
+                    "existe déjà, il ne sera pas téléchargé à nouveau.")
+        ) }
+    
+}   
+```
+
+# Manipulation des données
+
+## Données CO2
+
+La base de données CO2 contient 46.523 observations regroupé en 74 variables. Cette base de données propose de mieux comprendre les sources d'énergies dans 207 pays.Pour obtenir une meilleure lecture et analyse des données, il est apparu plus simple de traiter la base de données CO2 avec quelques variables et non dans sa totalité. Au total, 18 sur 74 variables ont été sélectionnées.
+
+La description de chacune de celles-ci sera expliqué dans le document exploration.
+
+```{r lecture et assemblage des données, warning=FALSE, message=FALSE, error=FALSE}
+#Transformation des données en tibble
+
+as.tibble(dat_owid)
+
+#Filtrage du tibble
+
+dat_CO2 <-  dat_owid %>% 
+
+    select(country, year, iso_code, population, gdp, co2, cement_co2_per_capita, 
+
+           co2_per_gdp, coal_co2, coal_co2_per_capita, gas_co2, gas_co2_per_capita,
+
+           methane, methane_per_capita, oil_co2, oil_co2_per_capita, ghg_per_capita, trade_co2)
+
+```
+
+## Classement par continent
+
+Dans les deux banques de données que nous utilisons, j'ai créé une variable qui regroupe les différents pays en sous-groupe des 5 continents soit : l'Afrique, l'Amérique, l'Asie, l'Europe et l'Océanie. Ceci me permettra de faire des comparaisons plus large en me référant au continent et non au pays.
+
+```{r variable for continents, warning=FALSE, error=FALSE}
+
+dat_CO2 <-  dat_CO2 %>% 
+    mutate(continent = countrycode(sourcevar = dat_owid$country,
+                                   origin = "country.name",
+                                   destination = "continent"))
+datgm <-  datgm %>%
+    mutate(continent = countrycode(sourcevar = datgm$name,
+                                   origin = "country.name",
+                                   destination = "continent"))
+```
+
+## Temps écoulé
+
+Il est également intéressant de voir le temps écoulé entre la production de se rapport et la première année que des données ont été récoltées pour chacun des pays qui se trouvent dans le jeu de données de *Life Expectancy at Birth*.
+
+Cette variable prendra le nom de `time` dans la banque de données.
+Ne fonctionne pas (on a manqué de temps...)
+```{r}
+
+# datgm <- datgm |> 
+#     mutate(time_since = "01-01") |>
+#     unite(time, time_since, col = time, sep = "-") |> 
+#     mutate(total = as.Date(time, format = "%Y/%m/%d")) |> 
+#     mutate(jour = difftime(as.POSIXct(today()),
+#                            as.POSIXct(as.Date(min(datgm$date), 
+#                                               format = "%Y-%m-%d"))))
+
+```
+
+# Recoder certaines variables
+
+Dans les banques de données que nous utilisons, des variables qui regroupent le même type d'information n'ont pas nécessairement le même nom.
+
+Notamment, dans la banque de données r par uniformiser ceci, notamment en renommant les colonnes des pays pour `country`et pour l'année `year`.
+
+```{r recode variables, warning=FALSE, error=FALSE}
+datgm <- datgm |> 
+    rename(country = name,
+           year = time,
+           life_exp = `Life expectancy`)
+```
+
+# Joindre les banques de données
+
+```{r joindre les banques de données, warning=FALSE, error=FALSE, message=FALSE}
+datultimate = inner_join(dat_CO2, datgm)
+```
+
+# Exporter
+
+Maintenant qu'une première manipulation des données a été fait, nous pouvons exporter celles-ci comme étant des données traitées dans le dossier `data/processed`.
+
+Les prochaines analyses auront comme point de départ les données traitées, donc qui ont été exportées dans le chemin relatif ci-dessus.
+
+```{r exporting data to processed, warning=FALSE, error=FALSE}
+write_csv(dat_CO2,file = "data/processed/dat_CO2.csv")
+
+write_csv(datgm, file = "data/processed/datgm.csv")
+
+write_csv(datultimate, file = "data/processed/datultimate.csv")
+```
