@@ -1,13 +1,13 @@
 ---
-title: "Titre de votre page d'importation"
-title-block-banner: true
+title: "Les données"
+title-block-banner: false
 description: | 
-  Petite description de cette page.
+  Cette page porte attention aux données utiliser dans la réalisation de ce projet.
 # à changer
 date: "2022-12-21"
 # Modifier les détails que vous voulez
 author:
-  - name: "Prénom Nom"
+  - name: "Bertrand Turcotte et Philippe Rosa"
     # Votre site web perso ou github
     url: https://github.com/VOTREUSERNAME
     # les champs d'affiliation sont optionnels, vous pouvez les
@@ -19,23 +19,86 @@ author:
     orcid: 0000-0000-0000-0000
 
 # TRUE == Générer une citation pour cette page précise. Pour enlever, mettre false.
-citation: true
+citation: false
 # Inclure les références que vous utilisez dans vos rapports. Je conseille Zotero pour construire
 # ce fichier ou de connecter RStudio directement pour pouvoir citer avec @nom-de-reference.
 bibliography: references.bib
 ---
 
-Il est maintenant le temps de décrire votre projet avant de passer au document
-suivant, soit l'importation et la manipulation des données.
+# **Importation des données et manipulations**
 
-Je vous conseille d'écrire cette partie en dernier, une fois que vous aurez
-déjà vos résultats et figures afin d'éviter de réécrire cette page plusieurs
-fois.
+```{r echo = FALSE, warning = FALSE, message =FALSE}
+library(fs)
+library(lubridate)
+library(readxl)
+source("environnement_data.R")
 
-::: callout-important
-N'oubliez pas d'inclure vos références sur chacune des pages!
-:::
+```
 
-Par exemple:
+## Importation des données raw
 
-> Les données proviennent entre autres de @owidenergy.
+Les données dans le fichier raw constituent la banque de donnée non-modifiée provenant directement de Our World in Data.
+
+```{r echo = FALSE, warning = FALSE, message =FALSE}
+dat
+```
+
+## Base de données processed
+
+Le fichier des données processed montre toutes les nouvelles banques de données provenant de manipulation de la banque originale pour permettre l'étude de variables spécifiques.
+
+### Création base de données pour calculer le temps écoulé en jours entre la production (rendering) du rapport et la première année que des données ont été récoltées pour chacun des pays qui se trouvent dans le jeu de données de Life Expectancy at Birth.
+
+```{r echo = FALSE, warning = FALSE, message =FALSE}
+
+
+dat_exp1$time <-  ymd(dat_exp1$time, truncated = 2L )
+
+
+dat_exp1 = dat_exp1 |> 
+    group_by(name) |> 
+    mutate(date_original = min(time)) |> 
+    ungroup()
+
+dat_exp1 = dat_exp1 |> mutate(Difference_temps = difftime(today(), date_original), units = "days")
+
+```
+
+```{r}
+dat_exp1
+```
+
+### dat_1955
+
+```{r echo = FALSE, warning = FALSE, message =FALSE}
+dat_1955
+
+```
+
+### Dat 1975
+
+```{r echo = FALSE, warning = FALSE, message =FALSE}
+dat_1975
+```
+
+### Dat 1995
+
+```{r echo = FALSE, warning = FALSE, message =FALSE}
+dat_1995
+```
+
+### Dat 2015
+
+```{r echo = FALSE, warning = FALSE, message =FALSE}
+dat_2015
+```
+
+### Dat Continent
+
+```{r echo = FALSE, warning = FALSE, message =FALSE}
+dat_continent
+```
+
+**DELETE**
+
+Les données proviennent entre autres de @owiCO2
